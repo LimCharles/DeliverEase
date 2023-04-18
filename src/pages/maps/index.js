@@ -1,6 +1,25 @@
 import { useState, useEffect, useRef } from "react";
+import { db } from "../../services/clientApp";
+import { useCollection } from "react-firebase-hooks/firestore";
+import { collection, setDoc, doc } from "firebase/firestore";
 
 const Maps = () => {
+  // ==== Firebase Firestore ====
+  // Destructure deliveries collection, loading, and error out of the hook
+  const [recentPlacesCollection, recentPlacesLoading, recentPlacesError] =  useCollection(collection(db, "recentPlaces"));
+
+  // Temporary - log deliveries collction
+  if (!recentPlacesLoading && recentPlacesCollection) {
+    recentPlacesCollection.docs.map((doc) => console.log(doc.data()));
+  }
+
+  // Create new delivery
+  const saveRecentPlace = async (recentPlace) => {
+    await setDoc(doc(db, "recentPlaces", recentPlace), {
+      "Location": recentPlace,
+    })
+  }
+
   // Loading
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +66,7 @@ const Maps = () => {
               <p className="font-poppins">
                 Add your first destination by clicking the button!
               </p>
-              <button className="flex flex-row items-center justify-center font-poppins text-xs font-normal gap-3 text-[#B1B1B1] rounded-md h-[48px] pl-8 pr-16 py-2 border-[#ADADAD] border-[1px] cursor-pointer">
+              <button className="flex flex-row items-center justify-center font-poppins text-xs font-normal gap-3 text-[#B1B1B1] rounded-md h-[48px] pl-8 pr-16 py-2 border-[#ADADAD] border-[1px] cursor-pointer" onClick={() => saveRecentPlace("new place")}>
                 <svg
                   width="25"
                   height="25"
