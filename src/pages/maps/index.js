@@ -21,9 +21,8 @@ const Maps = () => {
 
   // Create new delivery
   const saveRecentPlace = async (recentPlace) => {
-    await setDoc(doc(db, "recentPlaces", recentPlace), {
-      "Location": recentPlace,
-    })
+    const docRef = doc(db, "recentPlaces").withConverter(locationConverter);
+    await addDoc(docRef, recentPlace)
   }
 
   // Loading
