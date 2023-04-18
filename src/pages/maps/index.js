@@ -494,7 +494,7 @@ const Maps = () => {
                   </div>
                 </div>
                 <div className="flex flex-col h-full justify-between mx-8 gap-4">
-                  <div className="flex flex-col h-64 overflow-y-auto gap-4">
+                  <div className="flex flex-col h-72 overflow-y-auto gap-4">
                     {savedPlaces.map((place, index) => (
                       <div
                         key={index}
@@ -562,7 +562,7 @@ const Maps = () => {
       >
         <div
           ref={ref}
-          className="flex flex-col min-h-0 max-h-36rem p-6 bg-muted-white rounded-lg w-[600px] shadow-2xl gap-2 bg-white"
+          className="flex flex-col min-h-0 rem p-6 bg-muted-white rounded-lg w-[600px] shadow-2xl gap-2 bg-white"
           style={{ padding: "1.5rem" }}
         >
           <div className="flex flex-col gap-3">
