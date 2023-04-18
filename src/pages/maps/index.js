@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "../../services/clientApp";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, setDoc, doc } from "firebase/firestore";
+import { collection, addDoc } from "firebase/firestore";
 import { GoogleMap } from "@react-google-maps/api";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
 } from "use-places-autocomplete";
-
+import { LocationModel, locationConverter } from './locationModel.js';
 
 const Maps = () => {
   // ==== Firebase Firestore ====
@@ -21,8 +21,8 @@ const Maps = () => {
 
   // Create new delivery
   const saveRecentPlace = async (recentPlace) => {
-    const docRef = doc(db, "recentPlaces").withConverter(locationConverter);
-    await addDoc(docRef, recentPlace)
+    const collectionRef = collection(db, "recentPlaces").withConverter(locationConverter);
+    await addDoc(collectionRef, recentPlace);
   }
 
   // Loading
@@ -162,6 +162,15 @@ const Maps = () => {
       savedPlace["notes"] = notes;
       setNotes("");
     }
+
+    const location = new LocationModel(
+      secondStepPlace.main_text, 
+      secondStepPlace.secondary_text, 
+      secondStepPlace.lat, 
+      secondStepPlace.lng,
+      new Date(),
+    )
+    saveRecentPlace(location);
     setSavedPlaces([...savedPlaces, secondStepPlace]);
     setSecondStepPlace(null);
     setStep(0);
