@@ -10,7 +10,8 @@ import {
 import { calculateRoute } from "@/services/calculateRoute";
 import {
   collection,
-  addDoc,
+  setDoc,
+  doc,
   query,
   orderBy,
   deleteDoc,
@@ -36,9 +37,10 @@ const Maps = () => {
 
   // Add new recent place
   const saveRecentPlace = async (recentPlace) => {
-    await addDoc(
-      recentPlacesCollectionRef.withConverter(locationConverter),
-      recentPlace
+    const docRef = doc(db, "recentPlaces", recentPlace.mainText + "-" + recentPlace.secondaryText).withConverter(locationConverter);
+    await setDoc(
+      docRef,
+      recentPlace,
     );
   };
 
