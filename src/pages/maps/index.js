@@ -9,28 +9,72 @@ import {
   LoadScript,
 } from "@react-google-maps/api";
 import { calculateRoute } from "@/services/calculateRoute";
+import {
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  deleteDoc,
+} from "firebase/firestore";
+import { GoogleMap } from "@react-google-maps/api";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
 } from "use-places-autocomplete";
 import moment from "moment";
+import { LocationModel, locationConverter } from "./locationModel.js";
 
 const Maps = () => {
   // ==== Firebase Firestore ====
   // Destructure deliveries collection, loading, and error out of the hook
+  // Sort by most recent place searched
+  const recentPlacesCollectionRef = collection(db, "recentPlaces");
+  const sortedQuery = query(
+    recentPlacesCollectionRef,
+    orderBy("date", "desc")
+  ).withConverter(locationConverter);
   const [recentPlacesCollection, recentPlacesLoading, recentPlacesError] =
-    useCollection(collection(db, "recentPlaces"));
+    useCollection(sortedQuery);
 
-  // Temporary - log deliveries collction
-  if (!recentPlacesLoading && recentPlacesCollection) {
-  }
-
-  // Create new delivery
+  // Add new recent place
   const saveRecentPlace = async (recentPlace) => {
-    await setDoc(doc(db, "recentPlaces", recentPlace), {
-      Location: recentPlace,
-    });
+    await addDoc(
+      recentPlacesCollectionRef.withConverter(locationConverter),
+      recentPlace
+    );
   };
+
+  // Watch for changes to the recentPlaces collection and log them
+  useEffect(() => {
+    if (!recentPlacesLoading && !recentPlacesError) {
+      const recentLimit = 3;
+      if (recentPlacesCollection.docs.length > recentLimit) {
+        recentPlacesCollection.docs.slice(recentLimit).forEach((doc) => {
+          return deleteDoc(doc.ref)
+            .then(() => {
+              console.log(
+                "Recent places exceeding limit successfully deleted!"
+              );
+            })
+            .catch((error) => {
+              console.error(
+                "Error removing recent places exceeding limit: ",
+                error
+              );
+            });
+        });
+      } else {
+        setRecentPlaces(
+          recentPlacesCollection.docs.map((recentPlace) => recentPlace.data())
+        );
+        console.log(
+          recentPlacesCollection.docs.map((recentPlace) => recentPlace.data())
+        );
+      }
+    } else if (recentPlacesError) {
+      console.log("Error:", recentPlacesError);
+    }
+  }, [recentPlacesCollection, recentPlacesLoading, recentPlacesError]);
 
   // Loading
   const [loading, setLoading] = useState(false);
@@ -58,7 +102,7 @@ const Maps = () => {
     }
   }, [ref]);
 
-  const [recents, setRecents] = useState([]);
+  const [recentPlaces, setRecentPlaces] = useState([]);
   const [notes, setNotes] = useState("");
   const [secondStepPlace, setSecondStepPlace] = useState(null);
   const [savedPlaces, setSavedPlaces] = useState([]);
@@ -149,6 +193,15 @@ const Maps = () => {
       savedPlace["notes"] = notes;
       setNotes("");
     }
+
+    const location = new LocationModel(
+      secondStepPlace.main_text,
+      secondStepPlace.secondary_text,
+      secondStepPlace.lat,
+      secondStepPlace.lng,
+      new Date()
+    );
+    saveRecentPlace(location);
     setSavedPlaces([...savedPlaces, secondStepPlace]);
     setSecondStepPlace(null);
     setStep(0);
