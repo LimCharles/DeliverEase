@@ -1,30 +1,36 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { db } from "../../services/clientApp";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, setDoc, doc } from "firebase/firestore";
-import { GoogleMap } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  DirectionsService,
+  DirectionsRenderer,
+  LoadScript,
+} from "@react-google-maps/api";
+import { calculateRoute } from "@/services/calculateRoute";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
 } from "use-places-autocomplete";
-
+import moment from "moment";
 
 const Maps = () => {
   // ==== Firebase Firestore ====
   // Destructure deliveries collection, loading, and error out of the hook
-  const [recentPlacesCollection, recentPlacesLoading, recentPlacesError] =  useCollection(collection(db, "recentPlaces"));
+  const [recentPlacesCollection, recentPlacesLoading, recentPlacesError] =
+    useCollection(collection(db, "recentPlaces"));
 
   // Temporary - log deliveries collction
   if (!recentPlacesLoading && recentPlacesCollection) {
-    recentPlacesCollection.docs.map((doc) => console.log(doc.data()));
   }
 
   // Create new delivery
   const saveRecentPlace = async (recentPlace) => {
     await setDoc(doc(db, "recentPlaces", recentPlace), {
-      "Location": recentPlace,
-    })
-  }
+      Location: recentPlace,
+    });
+  };
 
   // Loading
   const [loading, setLoading] = useState(false);
@@ -59,7 +65,7 @@ const Maps = () => {
 
   const deletePlace = (place) => {
     let newPlaces = savedPlaces.filter((p) => p !== place);
-    console.log(savedPlaces);
+
     setSavedPlaces(newPlaces);
   };
 
@@ -68,21 +74,6 @@ const Maps = () => {
     width: "100%",
     height: "100%",
   };
-
-  const [latitude, setLatitude] = useState(14.599512);
-  const [longitude, setLongitude] = useState(120.984222);
-
-  useEffect(() => {
-    // Get the current location when the component mounts
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        setLatitude(position.coords.latitude);
-        setLongitude(position.coords.longitude);
-      });
-    } else {
-      setError("Geolocation is not supported in this browser.");
-    }
-  }, []);
 
   const {
     ready,
@@ -152,11 +143,6 @@ const Maps = () => {
     setValue(e.target.value);
   };
 
-  const center = {
-    lat: latitude,
-    lng: longitude,
-  };
-
   const savePlace = () => {
     const savedPlace = secondStepPlace;
     if (notes) {
@@ -168,6 +154,46 @@ const Maps = () => {
     setStep(0);
   };
 
+  const [shortestPath, setShortestPath] = useState(null);
+  const [directionResponse, setDirectionResponse] = useState(null);
+  const [origin, setOrigin] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [duration, setDuration] = useState(null);
+  const calculate = () => {
+    calculateRoute(savedPlaces).then((result) => {
+      let path = result.path;
+      setOrigin(result.path[0].lat + "," + result.path[0].lng);
+      setDestination(
+        result.path[result.path.length - 1].lat +
+          "," +
+          result.path[result.path.length - 1].lng
+      );
+      setDuration(moment.duration(result.duration, "seconds"));
+      for (let i = 0; i < path.length; i++) {
+        path[i] = {
+          location: new window.google.maps.LatLng(path[i].lat, path[i].lng),
+          stopover: true,
+        };
+      }
+      setShortestPath(path);
+      setStep(2);
+    });
+  };
+
+  const currentTime = moment();
+
+  const [center, setCenter] = useState({
+    lat: 14.6398614,
+    lng: 121.0784939,
+  });
+  const mapRef = useRef(null);
+  const handleCenterChanged = useCallback(() => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter();
+      console.log("New Center:", center);
+      // Perform any logic with the new center coordinates here
+    }
+  }, []);
   return (
     <div className="flex flex-row w-screen h-screen">
       {loading ? (
@@ -179,17 +205,36 @@ const Maps = () => {
         <>
           <div className="grow">
             <GoogleMap
-              mapContainerStyle={containerStyle}
+              ref={mapRef}
               center={center}
-              zoom={10}
+              mapContainerStyle={containerStyle}
+              zoom={13}
             >
-              {/* Child components, such as markers, info windows, etc. */}
-              <></>
+              {shortestPath != null && (
+                <>
+                  <DirectionsService
+                    options={{
+                      destination: destination,
+                      origin: origin,
+                      waypoints: shortestPath.length <= 2 ? [] : shortestPath,
+                      travelMode: "DRIVING",
+                    }}
+                    callback={(response) => {
+                      setDirectionResponse(response);
+                    }}
+                  />
+                  <DirectionsRenderer
+                    options={{
+                      directions: directionResponse,
+                    }}
+                  />
+                </>
+              )}
             </GoogleMap>
           </div>
-          <div className="h-full flex flex-col px-8 py-16 justify-between w-[35%]">
+          <div className="h-full flex flex-col py-16 justify-between w-[35%]">
             {step == 0 ? (
-              <>
+              <div className="mx-8 flex flex-col justify-between h-full">
                 <div className="flex flex-col gap-6">
                   <p className="font-poppins">
                     Add your first destination by clicking the button!
@@ -244,7 +289,7 @@ const Maps = () => {
                               width: "40px",
                             }}
                           >
-                            <p className="text-center">{index}</p>
+                            <p className="text-center">{index + 1}</p>
                           </div>
                           <div className="flex flex-col">
                             <p className="text-xs font-bold">
@@ -278,12 +323,17 @@ const Maps = () => {
                     ))}
                   </div>
                 </div>
-                <button className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-5">
+                <button
+                  onClick={() => {
+                    calculate();
+                  }}
+                  className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-5"
+                >
                   Calculate Route Now
                 </button>
-              </>
-            ) : (
-              <div className="flex flex-col border-[1px] border-[#E3E3E3] rounded-md py-4 px-16 gap-8">
+              </div>
+            ) : step == 1 ? (
+              <div className="mx-8 flex flex-col border-[1px] border-[#E3E3E3] rounded-md py-4 px-16 gap-8">
                 <div className="flex flex-col">
                   <p className="font-bold text-sm">
                     {secondStepPlace?.main_text}
@@ -310,6 +360,127 @@ const Maps = () => {
                 >
                   Add Address
                 </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-8 h-full">
+                <div className="flex flex-col gap-6 shadow-xl px-16 pb-10">
+                  <div className="flex flex-row gap-4 items-center">
+                    <svg
+                      width="31"
+                      height="36"
+                      viewBox="0 0 31 36"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M20.1818 0H10.0909V3.36364H20.1818V0ZM13.4545 21.8636H16.8182V11.7727H13.4545V21.8636ZM26.9595 10.7468L29.3477 8.35864C28.6245 7.50091 27.8341 6.69364 26.9764 5.98727L24.5882 8.37545C21.9814 6.29 18.7018 5.04545 15.1364 5.04545C6.77773 5.04545 0 11.8232 0 20.1818C0 28.5405 6.76091 35.3182 15.1364 35.3182C23.5118 35.3182 30.2727 28.5405 30.2727 20.1818C30.2727 16.6164 29.0282 13.3368 26.9595 10.7468ZM15.1364 31.9545C8.62773 31.9545 3.36364 26.6905 3.36364 20.1818C3.36364 13.6732 8.62773 8.40909 15.1364 8.40909C21.645 8.40909 26.9091 13.6732 26.9091 20.1818C26.9091 26.6905 21.645 31.9545 15.1364 31.9545Z"
+                        fill="black"
+                      />
+                    </svg>
+                    <div className="flex flex-col">
+                      <p className="font-bold text-xs">Start Time:</p>
+                      <p className="font-light text-xs">
+                        {currentTime.format("hh:mm A")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-row gap-4 items-center">
+                    <svg
+                      width="33"
+                      height="37"
+                      viewBox="0 0 33 37"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M29.0786 5.97045L26.6905 8.35864C24.0836 6.29 20.8041 5.04545 17.2386 5.04545C14.1609 5.04545 11.3018 5.97045 8.91364 7.53455L11.3691 9.99C13.0845 8.99773 15.1027 8.40909 17.2386 8.40909C23.7473 8.40909 29.0114 13.6732 29.0114 20.1818C29.0114 22.3177 28.4227 24.3359 27.4305 26.0514L29.8691 28.49C31.45 26.1186 32.375 23.2595 32.375 20.1818C32.375 16.6164 31.1305 13.3368 29.0618 10.7468L31.45 8.35864L29.0786 5.97045ZM22.2841 0H12.1932V3.36364H22.2841V0ZM15.5568 14.1945L18.9205 17.5582V11.7727H15.5568V14.1945ZM2.13591 5.04545L0 7.18136L4.625 11.8232C3.02727 14.2114 2.10227 17.0873 2.10227 20.1818C2.10227 28.5405 8.86318 35.3182 17.2386 35.3182C20.3332 35.3182 23.2091 34.3932 25.6141 32.7955L29.8186 37L31.9545 34.8641L18.9877 21.8973L2.13591 5.04545ZM17.2386 31.9545C10.73 31.9545 5.46591 26.6905 5.46591 20.1818C5.46591 18.0291 6.05454 16.0109 7.06364 14.2618L23.1418 30.34C21.4095 31.3659 19.3914 31.9545 17.2386 31.9545Z"
+                        fill="black"
+                      />
+                    </svg>
+
+                    <div className="flex flex-col">
+                      <p className="font-bold text-xs">End Time:</p>
+                      <p className="font-light text-xs">
+                        {currentTime.clone().add(duration).format("hh:mm A")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-row gap-4 items-center">
+                    <svg
+                      width="34"
+                      height="34"
+                      viewBox="0 0 34 34"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M23.9491 9.68727C21.9814 7.71955 19.4082 6.72727 16.8182 6.72727V16.8182L9.68727 23.9491C13.6227 27.8845 20.0136 27.8845 23.9659 23.9491C27.9014 20.0136 27.9014 13.6227 23.9491 9.68727ZM16.8182 0C7.53454 0 0 7.53454 0 16.8182C0 26.1018 7.53454 33.6364 16.8182 33.6364C26.1018 33.6364 33.6364 26.1018 33.6364 16.8182C33.6364 7.53454 26.1018 0 16.8182 0ZM16.8182 30.2727C9.38455 30.2727 3.36364 24.2518 3.36364 16.8182C3.36364 9.38455 9.38455 3.36364 16.8182 3.36364C24.2518 3.36364 30.2727 9.38455 30.2727 16.8182C30.2727 24.2518 24.2518 30.2727 16.8182 30.2727Z"
+                        fill="black"
+                      />
+                    </svg>
+                    <div className="flex flex-col">
+                      <p className="font-bold text-xs">Total Duration:</p>
+                      <p className="font-light text-xs">
+                        {duration.minutes()} minutes
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col h-full justify-between mx-8 gap-4">
+                  <div className="flex flex-col h-56 overflow-y-auto gap-4">
+                    {savedPlaces.map((place, index) => (
+                      <div
+                        key={index}
+                        className="flex flex-row justify-between border-[1px] rounded-md border-[#E3E3E3] p-4 items-center gap-8 h-18"
+                      >
+                        <div className="flex flex-row gap-4 items-center">
+                          <div
+                            className="border-black border-[1px] rounded-[50%] items-center justify-center flex flex-row"
+                            style={{
+                              height: "40px",
+                              width: "40px",
+                            }}
+                          >
+                            <p className="text-center">{index + 1}</p>
+                          </div>
+                          <div className="flex flex-col">
+                            <p className="text-xs font-bold">
+                              {place.main_text}
+                            </p>
+                            <p className="text-[10px]">
+                              {place.secondary_text}
+                            </p>
+                            <p className="text-[8px]">
+                              {place.notes && place.notes}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setStep(0);
+                      setSavedPlaces([]);
+                    }}
+                    className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-5 gap-6"
+                  >
+                    <svg
+                      width="39"
+                      height="43"
+                      viewBox="0 0 39 43"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M31.875 29.92C30.26 29.92 28.815 30.5575 27.71 31.5563L12.5588 22.7375C12.665 22.2487 12.75 21.76 12.75 21.25C12.75 20.74 12.665 20.2513 12.5588 19.7625L27.54 11.0288C28.6875 12.0913 30.1962 12.75 31.875 12.75C35.4025 12.75 38.25 9.9025 38.25 6.375C38.25 2.8475 35.4025 0 31.875 0C28.3475 0 25.5 2.8475 25.5 6.375C25.5 6.885 25.585 7.37375 25.6912 7.8625L10.71 16.5963C9.5625 15.5338 8.05375 14.875 6.375 14.875C2.8475 14.875 0 17.7225 0 21.25C0 24.7775 2.8475 27.625 6.375 27.625C8.05375 27.625 9.5625 26.9662 10.71 25.9037L25.84 34.7438C25.7337 35.19 25.67 35.6575 25.67 36.125C25.67 39.5462 28.4538 42.33 31.875 42.33C35.2962 42.33 38.08 39.5462 38.08 36.125C38.08 32.7038 35.2962 29.92 31.875 29.92Z"
+                        fill="white"
+                      />
+                    </svg>
+                    Send Directions
+                  </button>
+                </div>
               </div>
             )}
           </div>
