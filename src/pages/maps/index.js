@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import { GoogleMap } from "@react-google-maps/api";
+import usePlacesAutocomplete, {
+  getGeocode,
+  getLatLng,
+} from "use-places-autocomplete";
 
 const Maps = () => {
   // Loading
@@ -24,11 +29,107 @@ const Maps = () => {
     }
   }, [ref]);
 
-  const [address, setAddress] = useState("");
   const [recents, setRecents] = useState([]);
   const [savedPlaces, setSavedPlaces] = useState([]);
 
-  useEffect(() => {}, [address]);
+  const deletePlace = (place) => {
+    let newPlaces = savedPlaces.filter((p) => p !== place);
+    console.log(savedPlaces);
+    setSavedPlaces(newPlaces);
+  };
+
+  // Google Maps Stuff
+  const containerStyle = {
+    width: "100%",
+    height: "100%",
+  };
+
+  const [latitude, setLatitude] = useState(14.599512);
+  const [longitude, setLongitude] = useState(120.984222);
+
+  useEffect(() => {
+    // Get the current location when the component mounts
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      });
+    } else {
+      setError("Geolocation is not supported in this browser.");
+    }
+  }, []);
+
+  const {
+    ready,
+    value,
+    suggestions: { status, data },
+    setValue,
+    clearSuggestions,
+  } = usePlacesAutocomplete({
+    requestOptions: {
+      /* Define search scope here */
+    },
+    debounce: 300,
+  });
+
+  const handleSelect = (suggestion) => () => {
+    let { description } = suggestion;
+
+    setValue("");
+    clearSuggestions();
+
+    let main_text = suggestion.structured_formatting.main_text;
+    let secondary_text = suggestion.structured_formatting.secondary_text;
+    getGeocode({ address: description }).then((results) => {
+      const { lat, lng } = getLatLng(results[0]);
+      setSavedPlaces([...savedPlaces, { lat, lng, main_text, secondary_text }]);
+    });
+    openModal(false);
+  };
+
+  const renderSuggestions = () =>
+    data.map((suggestion, index) => {
+      const {
+        place_id,
+        structured_formatting: { main_text, secondary_text },
+      } = suggestion;
+
+      return (
+        <div
+          key={index}
+          onClick={handleSelect(suggestion)}
+          className="h-16 flex flex-row p-4 justify-between items-center border-b-[1px] border-[#ADADAD] last:border-b-0 group cursor-pointer transition-all hover:bg-slate-100"
+        >
+          <div className="flex flex-col" key={place_id}>
+            <p className="font-bold text-sm">{main_text}</p>
+            <p className="font-normal text-xs">{secondary_text}</p>
+          </div>
+          <svg
+            className="mr-4 transition-all group-hover:mr-0"
+            width="10"
+            height="14"
+            viewBox="0 0 10 14"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M2 2L7.25 7.25L2 12.5"
+              stroke="#00693D"
+              strokeWidth="2.86364"
+            />
+          </svg>
+        </div>
+      );
+    });
+
+  const handleInput = (e) => {
+    setValue(e.target.value);
+  };
+
+  const center = {
+    lat: latitude,
+    lng: longitude,
+  };
 
   return (
     <div className="flex flex-row w-screen h-screen">
@@ -40,14 +141,26 @@ const Maps = () => {
       ) : (
         <>
           <div className="grow">
-            <p>Map</p>
+            <GoogleMap
+              mapContainerStyle={containerStyle}
+              center={center}
+              zoom={10}
+            >
+              {/* Child components, such as markers, info windows, etc. */}
+              <></>
+            </GoogleMap>
           </div>
-          <div className="h-full flex flex-col px-16 py-16 justify-between">
+          <div className="h-full flex flex-col px-8 py-16 justify-between w-[35%]">
             <div className="flex flex-col gap-6">
               <p className="font-poppins">
                 Add your first destination by clicking the button!
               </p>
-              <button className="flex flex-row items-center justify-center font-poppins text-xs font-normal gap-3 text-[#B1B1B1] rounded-md h-[48px] pl-8 pr-16 py-2 border-[#ADADAD] border-[1px] cursor-pointer">
+              <button
+                onClick={() => {
+                  openModal(true);
+                }}
+                className="flex flex-row items-center justify-center font-poppins text-xs font-normal gap-3 text-[#B1B1B1] rounded-md h-[48px] pl-8 pr-16 py-2 border-[#ADADAD] border-[1px] cursor-pointer"
+              >
                 <svg
                   width="25"
                   height="25"
@@ -62,27 +175,66 @@ const Maps = () => {
                     fill="white"
                     stroke="#ADADAD"
                   />
-                  <path d="M12.5 8V17" stroke="#959595" stroke-width="1.25" />
+                  <path d="M12.5 8V17" stroke="#959595" strokeWidth="1.25" />
                   <path
                     d="M17 12.5L8 12.5"
                     stroke="#959595"
-                    stroke-width="1.25"
+                    strokeWidth="1.25"
                   />
                 </svg>
                 Press to add address
               </button>
+              <div
+                id="savedplaces"
+                className="flex flex-col gap-4 max-h-96 overflow-y-auto pr-2"
+              >
+                {savedPlaces.map((place, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-row justify-between border-[1px] rounded-md border-[#E3E3E3] p-4 items-center gap-8 h-16"
+                  >
+                    <div className="flex flex-row gap-4 items-center">
+                      <div
+                        className="border-black border-[1px] rounded-[50%] items-center justify-center flex flex-row"
+                        style={{
+                          height: "40px",
+                          width: "40px",
+                        }}
+                      >
+                        <p className="text-center">{index}</p>
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-xs font-bold">{place.main_text}</p>
+                        <p className="text-[10px]">{place.secondary_text}</p>
+                      </div>
+                    </div>
+                    <svg
+                      onClick={() => {
+                        deletePlace(place);
+                      }}
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      className="cursor-pointer"
+                      height="16"
+                      fill="none"
+                    >
+                      <path
+                        fill="#000"
+                        stroke="#EF4444"
+                        d="M10.2 4v.5h3.1a.2.2 0 0 1 0 .3h-1.1v7.9a1.5 1.5 0 0 1-1.5 1.5H5.3c-.4 0-.7-.2-1-.5l-.4.4.4-.4c-.3-.3-.5-.6-.5-1V4.8H2.7a.2.2 0 1 1 0-.3h3.1V3.3a1.5 1.5 0 0 1 1.5-1.5h1.4a1.5 1.5 0 0 1 1.5 1.5V4Zm-.9.5h.5V3.3a1.2 1.2 0 0 0-1.1-1.1H7.3a1.2 1.2 0 0 0-1.1 1.1v1.2h3.1Zm-4.6.3h-.5v7.9a1.2 1.2 0 0 0 1.1 1.1h5.4a1.2 1.2 0 0 0 1.1-1.1V4.8H4.7Zm2 6.7a.2.2 0 0 1-.2-.2v-4a.2.2 0 0 1 .3 0v4.2Zm2.8 0a.2.2 0 0 1-.3-.2v-4a.2.2 0 0 1 .3 0v4.2Z"
+                      />
+                    </svg>
+                  </div>
+                ))}
+              </div>
             </div>
-            <button
-              onClick={() => {
-                openModal(true);
-              }}
-              className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-5"
-            >
+            <button className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-5">
               Calculate Route Now
             </button>
           </div>
         </>
       )}
+
       <div
         className={`${
           modal ? "block" : "hidden"
@@ -91,61 +243,26 @@ const Maps = () => {
       >
         <div
           ref={ref}
-          className="flex flex-col min-h-0 max-h-36rem p-6 bg-muted-white rounded-lg w-96 shadow-2xl gap-2"
+          className="flex flex-col min-h-0 max-h-36rem p-6 bg-muted-white rounded-lg w-[600px] shadow-2xl gap-2 bg-white"
           style={{ padding: "1.5rem" }}
         >
           <div className="flex flex-col gap-3">
             <p className="font-light ">Add destination here</p>
+
             <input
-              type="search"
-              id="default-search"
+              type="location"
               className="block w-full p-2 pl-4 text-xs font-light border-[1px] rounded-md focus:outline-0"
-              placeholder="Invite by email"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Type address here"
+              value={value}
+              onChange={handleInput}
             />
           </div>
-          <div
-            className="grid border-[1.5px] border-[#ADADAD] rounded-md"
-            style={{
-              gridTemplateRows: `repeat(${3}, minmax(0, 1fr))`,
-            }}
-          >
-            {address != "" ? (
-              <></>
+          <div className="flex flex-col border-[1.5px] border-[#ADADAD] rounded-md">
+            {value ? (
+              status === "OK" && <>{renderSuggestions()}</>
             ) : (
               <>
-                <div className="p-3 flex flex-row flex-1 items-center justify-between border-b-[1px] border-[#ADADAD] last:border-b-0">
-                  <div className="flex flex-row items-center gap-4">
-                    <svg
-                      width="27"
-                      height="25"
-                      viewBox="0 0 27 25"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M13.1579 20.0921L21.2895 25L19.1316 15.75L26.3158 9.52632L16.8553 8.72368L13.1579 0L9.46053 8.72368L0 9.52632L7.18421 15.75L5.02632 25L13.1579 20.0921Z"
-                        fill="black"
-                      />
-                    </svg>
-                    <p>Saved Places</p>
-                  </div>
-                  <svg
-                    width="10"
-                    height="14"
-                    viewBox="0 0 10 14"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M2 2L7.25 7.25L2 12.5"
-                      stroke="#00693D"
-                      stroke-width="2.86364"
-                    />
-                  </svg>
-                </div>
-                <div className="p-3 flex flex-row flex-1 items-center justify-between border-b-[1px] border-[#ADADAD] last:border-b-0">
+                <div className="p-3 flex flex-row flex-1 items-center justify-between border-b-[1px] border-[#ADADAD] last:border-b-0 group">
                   <div className="flex flex-row items-center gap-4">
                     <svg
                       width="25"
@@ -165,8 +282,8 @@ const Maps = () => {
                     </div>
                   </div>
                   <div className="flex flex-row gap-8 items-center">
-                    <p className="font-bold opacity-[41%] text-[8px]">8 KM</p>
                     <svg
+                      className="mr-4 transition-all group-hover:mr-0"
                       width="10"
                       height="14"
                       viewBox="0 0 10 14"
@@ -176,7 +293,7 @@ const Maps = () => {
                       <path
                         d="M2 2L7.25 7.25L2 12.5"
                         stroke="#00693D"
-                        stroke-width="2.86364"
+                        strokeWidth="2.86364"
                       />
                     </svg>
                   </div>
