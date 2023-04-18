@@ -20,7 +20,10 @@ import usePlacesAutocomplete, {
   getLatLng,
 } from "use-places-autocomplete";
 import moment from "moment";
-import { LocationModel, locationConverter } from "./locationModel.js";
+import {
+  LocationModel,
+  locationConverter,
+} from "../../services/locationModel.js";
 
 const Maps = () => {
   // ==== Firebase Firestore ====
