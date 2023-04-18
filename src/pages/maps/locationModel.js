@@ -21,6 +21,6 @@ export const locationConverter = {
   },
   fromFirestore: (snapshot, options) => {
     const data = snapshot.data(options);
-    return new Location(data.mainText, data.secondaryText, data.latitude, data.longitude, data.date.toDate());
+    return new LocationModel(data.mainText, data.secondaryText, data.latitude, data.longitude, new Date(data.date * 1000));
   }
 };

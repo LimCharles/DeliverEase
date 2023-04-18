@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "../../services/clientApp";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, query, orderBy, deleteDoc } from "firebase/firestore";
 import { GoogleMap } from "@react-google-maps/api";
 import usePlacesAutocomplete, {
   getGeocode,
@@ -10,20 +10,40 @@ import usePlacesAutocomplete, {
 import { LocationModel, locationConverter } from './locationModel.js';
 
 const Maps = () => {
+
   // ==== Firebase Firestore ====
   // Destructure deliveries collection, loading, and error out of the hook
-  const [recentPlacesCollection, recentPlacesLoading, recentPlacesError] =  useCollection(collection(db, "recentPlaces"));
+  // Sort by most recent place searched
+  const recentPlacesCollectionRef = collection(db, 'recentPlaces');
+  const sortedQuery = query(recentPlacesCollectionRef, orderBy('date', 'desc')).withConverter(locationConverter);
+  const [recentPlacesCollection, recentPlacesLoading, recentPlacesError] = useCollection(sortedQuery);
 
-  // Temporary - log deliveries collction
-  if (!recentPlacesLoading && recentPlacesCollection) {
-    recentPlacesCollection.docs.map((doc) => console.log(doc.data()));
-  }
-
-  // Create new delivery
+  // Add new recent place
   const saveRecentPlace = async (recentPlace) => {
-    const collectionRef = collection(db, "recentPlaces").withConverter(locationConverter);
-    await addDoc(collectionRef, recentPlace);
+    await addDoc(recentPlacesCollectionRef.withConverter(locationConverter), recentPlace);
   }
+
+  // Watch for changes to the recentPlaces collection and log them
+  useEffect(() => {
+    if (!recentPlacesLoading && !recentPlacesError) {
+      const recentLimit = 3;
+      if (recentPlacesCollection.docs.length > recentLimit) {
+        recentPlacesCollection.docs.slice(recentLimit).forEach((doc) => {
+          return deleteDoc(doc.ref).then(() => {
+            console.log('Recent places exceeding limit successfully deleted!');
+          }).catch((error) => {
+            console.error("Error removing recent places exceeding limit: ", error);
+          })
+        });
+      } else {
+        setRecentPlaces(recentPlacesCollection.docs.map((recentPlace) => recentPlace.data()));
+        console.log(recentPlacesCollection.docs.map((recentPlace) => recentPlace.data()));
+      }
+      
+    } else if (recentPlacesError) {
+      console.log("Error:", recentPlacesError);
+    }
+  }, [recentPlacesCollection, recentPlacesLoading, recentPlacesError]);
 
   // Loading
   const [loading, setLoading] = useState(false);
@@ -51,7 +71,7 @@ const Maps = () => {
     }
   }, [ref]);
 
-  const [recents, setRecents] = useState([]);
+  const [recentPlaces, setRecentPlaces] = useState([]);
   const [notes, setNotes] = useState("");
   const [secondStepPlace, setSecondStepPlace] = useState(null);
   const [savedPlaces, setSavedPlaces] = useState([]);
@@ -282,6 +302,45 @@ const Maps = () => {
                             d="M10.2 4v.5h3.1a.2.2 0 0 1 0 .3h-1.1v7.9a1.5 1.5 0 0 1-1.5 1.5H5.3c-.4 0-.7-.2-1-.5l-.4.4.4-.4c-.3-.3-.5-.6-.5-1V4.8H2.7a.2.2 0 1 1 0-.3h3.1V3.3a1.5 1.5 0 0 1 1.5-1.5h1.4a1.5 1.5 0 0 1 1.5 1.5V4Zm-.9.5h.5V3.3a1.2 1.2 0 0 0-1.1-1.1H7.3a1.2 1.2 0 0 0-1.1 1.1v1.2h3.1Zm-4.6.3h-.5v7.9a1.2 1.2 0 0 0 1.1 1.1h5.4a1.2 1.2 0 0 0 1.1-1.1V4.8H4.7Zm2 6.7a.2.2 0 0 1-.2-.2v-4a.2.2 0 0 1 .3 0v4.2Zm2.8 0a.2.2 0 0 1-.3-.2v-4a.2.2 0 0 1 .3 0v4.2Z"
                           />
                         </svg>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-6">
+                  <p className="font-poppins">
+                    Recents
+                  </p>
+                  <div
+                    id="recentplaces"
+                    className="flex flex-col gap-4 max-h-96 overflow-y-auto pr-2"
+                  >
+                    {recentPlaces.map((place, index) => (
+                      <div
+                        key={index}
+                        className="flex flex-row justify-between border-[1px] rounded-md border-[#E3E3E3] p-4 items-center gap-8 h-18"
+                      >
+                        <div className="flex flex-row gap-4 items-center">
+                          <div
+                            className="border-black border-[1px] rounded-[50%] items-center justify-center flex flex-row"
+                            style={{
+                              height: "40px",
+                              width: "40px",
+                            }}
+                          >
+                            <p className="text-center">{index}</p>
+                          </div>
+                          <div className="flex flex-col">
+                            <p className="text-xs font-bold">
+                              {place.mainText}
+                            </p>
+                            <p className="text-[10px]">
+                              {place.secondaryText}
+                            </p>
+                            <p className="text-[8px]">
+                              {place.date.toString()}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
