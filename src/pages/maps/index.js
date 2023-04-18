@@ -1,11 +1,31 @@
 import { useState, useEffect, useRef } from "react";
+import { db } from "../../services/clientApp";
+import { useCollection } from "react-firebase-hooks/firestore";
+import { collection, setDoc, doc } from "firebase/firestore";
 import { GoogleMap } from "@react-google-maps/api";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
 } from "use-places-autocomplete";
 
+
 const Maps = () => {
+  // ==== Firebase Firestore ====
+  // Destructure deliveries collection, loading, and error out of the hook
+  const [recentPlacesCollection, recentPlacesLoading, recentPlacesError] =  useCollection(collection(db, "recentPlaces"));
+
+  // Temporary - log deliveries collction
+  if (!recentPlacesLoading && recentPlacesCollection) {
+    recentPlacesCollection.docs.map((doc) => console.log(doc.data()));
+  }
+
+  // Create new delivery
+  const saveRecentPlace = async (recentPlace) => {
+    await setDoc(doc(db, "recentPlaces", recentPlace), {
+      "Location": recentPlace,
+    })
+  }
+
   // Loading
   const [loading, setLoading] = useState(false);
 
