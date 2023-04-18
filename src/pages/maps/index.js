@@ -5,7 +5,6 @@ import {
   GoogleMap,
   DirectionsService,
   DirectionsRenderer,
-  LoadScript,
 } from "@react-google-maps/api";
 import { calculateRoute } from "@/services/calculateRoute";
 import {
@@ -37,11 +36,12 @@ const Maps = () => {
 
   // Add new recent place
   const saveRecentPlace = async (recentPlace) => {
-    const docRef = doc(db, "recentPlaces", recentPlace.mainText + "-" + recentPlace.secondaryText).withConverter(locationConverter);
-    await setDoc(
-      docRef,
-      recentPlace,
-    );
+    const docRef = doc(
+      db,
+      "recentPlaces",
+      recentPlace.mainText + "-" + recentPlace.secondaryText
+    ).withConverter(locationConverter);
+    await setDoc(docRef, recentPlace);
   };
 
   // Watch for changes to the recentPlaces collection and display on-screen
