@@ -491,7 +491,7 @@ const Maps = () => {
                     <div className="flex flex-col">
                       <p className="font-bold text-xs">Total Duration:</p>
                       <p className="font-light text-xs">
-                        {duration.minutes()} minutes
+                        {duration.hours()} hours, {duration.minutes()} minutes
                       </p>
                     </div>
                   </div>
