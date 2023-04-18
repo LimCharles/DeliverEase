@@ -23,11 +23,12 @@ const Maps = () => {
     await addDoc(recentPlacesCollectionRef.withConverter(locationConverter), recentPlace);
   }
 
-  // Watch for changes to the recentPlaces collection and log them
+  // Watch for changes to the recentPlaces collection and display on-screen
   useEffect(() => {
     if (!recentPlacesLoading && !recentPlacesError) {
       const recentLimit = 3;
       if (recentPlacesCollection.docs.length > recentLimit) {
+        // Delete recent places exceeding
         recentPlacesCollection.docs.slice(recentLimit).forEach((doc) => {
           return deleteDoc(doc.ref).then(() => {
             console.log('Recent places exceeding limit successfully deleted!');
