@@ -28,6 +28,9 @@ const Maps = () => {
   // Loading
   const [loading, setLoading] = useState(false);
 
+  // Progress
+  const [step, setStep] = useState(0);
+
   // Modal
   const [modal, openModal] = useState(false);
   const ref = useRef(null);
@@ -49,6 +52,8 @@ const Maps = () => {
   }, [ref]);
 
   const [recents, setRecents] = useState([]);
+  const [notes, setNotes] = useState("");
+  const [secondStepPlace, setSecondStepPlace] = useState(null);
   const [savedPlaces, setSavedPlaces] = useState([]);
 
   const deletePlace = (place) => {
@@ -101,7 +106,8 @@ const Maps = () => {
     let secondary_text = suggestion.structured_formatting.secondary_text;
     getGeocode({ address: description }).then((results) => {
       const { lat, lng } = getLatLng(results[0]);
-      setSavedPlaces([...savedPlaces, { lat, lng, main_text, secondary_text }]);
+      setSecondStepPlace({ lat, lng, main_text, secondary_text });
+      setStep(1);
     });
     openModal(false);
   };
@@ -150,6 +156,17 @@ const Maps = () => {
     lng: longitude,
   };
 
+  const savePlace = () => {
+    const savedPlace = secondStepPlace;
+    if (notes) {
+      savedPlace["notes"] = notes;
+      setNotes("");
+    }
+    setSavedPlaces([...savedPlaces, secondStepPlace]);
+    setSecondStepPlace(null);
+    setStep(0);
+  };
+
   return (
     <div className="flex flex-row w-screen h-screen">
       {loading ? (
@@ -170,86 +187,130 @@ const Maps = () => {
             </GoogleMap>
           </div>
           <div className="h-full flex flex-col px-8 py-16 justify-between w-[35%]">
-            <div className="flex flex-col gap-6">
-              <p className="font-poppins">
-                Add your first destination by clicking the button!
-              </p>
-              <button
-                onClick={() => {
-                  openModal(true);
-                }}
-                className="flex flex-row items-center justify-center font-poppins text-xs font-normal gap-3 text-[#B1B1B1] rounded-md h-[48px] pl-8 pr-16 py-2 border-[#ADADAD] border-[1px] cursor-pointer"
-              >
-                <svg
-                  width="25"
-                  height="25"
-                  viewBox="0 0 25 25"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <circle
-                    cx="12.5"
-                    cy="12.5"
-                    r="12"
-                    fill="white"
-                    stroke="#ADADAD"
-                  />
-                  <path d="M12.5 8V17" stroke="#959595" strokeWidth="1.25" />
-                  <path
-                    d="M17 12.5L8 12.5"
-                    stroke="#959595"
-                    strokeWidth="1.25"
-                  />
-                </svg>
-                Press to add address
-              </button>
-              <div
-                id="savedplaces"
-                className="flex flex-col gap-4 max-h-96 overflow-y-auto pr-2"
-              >
-                {savedPlaces.map((place, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-row justify-between border-[1px] rounded-md border-[#E3E3E3] p-4 items-center gap-8 h-16"
+            {step == 0 ? (
+              <>
+                <div className="flex flex-col gap-6">
+                  <p className="font-poppins">
+                    Add your first destination by clicking the button!
+                  </p>
+                  <button
+                    onClick={() => {
+                      openModal(true);
+                    }}
+                    className="flex flex-row items-center justify-center font-poppins text-xs font-normal gap-3 text-[#B1B1B1] rounded-md h-[48px] pl-8 pr-16 py-2 border-[#ADADAD] border-[1px] cursor-pointer"
                   >
-                    <div className="flex flex-row gap-4 items-center">
-                      <div
-                        className="border-black border-[1px] rounded-[50%] items-center justify-center flex flex-row"
-                        style={{
-                          height: "40px",
-                          width: "40px",
-                        }}
-                      >
-                        <p className="text-center">{index}</p>
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="text-xs font-bold">{place.main_text}</p>
-                        <p className="text-[10px]">{place.secondary_text}</p>
-                      </div>
-                    </div>
                     <svg
-                      onClick={() => {
-                        deletePlace(place);
-                      }}
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      className="cursor-pointer"
-                      height="16"
+                      width="25"
+                      height="25"
+                      viewBox="0 0 25 25"
                       fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
                     >
+                      <circle
+                        cx="12.5"
+                        cy="12.5"
+                        r="12"
+                        fill="white"
+                        stroke="#ADADAD"
+                      />
                       <path
-                        fill="#000"
-                        stroke="#EF4444"
-                        d="M10.2 4v.5h3.1a.2.2 0 0 1 0 .3h-1.1v7.9a1.5 1.5 0 0 1-1.5 1.5H5.3c-.4 0-.7-.2-1-.5l-.4.4.4-.4c-.3-.3-.5-.6-.5-1V4.8H2.7a.2.2 0 1 1 0-.3h3.1V3.3a1.5 1.5 0 0 1 1.5-1.5h1.4a1.5 1.5 0 0 1 1.5 1.5V4Zm-.9.5h.5V3.3a1.2 1.2 0 0 0-1.1-1.1H7.3a1.2 1.2 0 0 0-1.1 1.1v1.2h3.1Zm-4.6.3h-.5v7.9a1.2 1.2 0 0 0 1.1 1.1h5.4a1.2 1.2 0 0 0 1.1-1.1V4.8H4.7Zm2 6.7a.2.2 0 0 1-.2-.2v-4a.2.2 0 0 1 .3 0v4.2Zm2.8 0a.2.2 0 0 1-.3-.2v-4a.2.2 0 0 1 .3 0v4.2Z"
+                        d="M12.5 8V17"
+                        stroke="#959595"
+                        strokeWidth="1.25"
+                      />
+                      <path
+                        d="M17 12.5L8 12.5"
+                        stroke="#959595"
+                        strokeWidth="1.25"
                       />
                     </svg>
+                    Press to add address
+                  </button>
+                  <div
+                    id="savedplaces"
+                    className="flex flex-col gap-4 max-h-96 overflow-y-auto pr-2"
+                  >
+                    {savedPlaces.map((place, index) => (
+                      <div
+                        key={index}
+                        className="flex flex-row justify-between border-[1px] rounded-md border-[#E3E3E3] p-4 items-center gap-8 h-18"
+                      >
+                        <div className="flex flex-row gap-4 items-center">
+                          <div
+                            className="border-black border-[1px] rounded-[50%] items-center justify-center flex flex-row"
+                            style={{
+                              height: "40px",
+                              width: "40px",
+                            }}
+                          >
+                            <p className="text-center">{index}</p>
+                          </div>
+                          <div className="flex flex-col">
+                            <p className="text-xs font-bold">
+                              {place.main_text}
+                            </p>
+                            <p className="text-[10px]">
+                              {place.secondary_text}
+                            </p>
+                            <p className="text-[8px]">
+                              {place.notes && place.notes}
+                            </p>
+                          </div>
+                        </div>
+                        <svg
+                          onClick={() => {
+                            deletePlace(place);
+                          }}
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          className="cursor-pointer"
+                          height="16"
+                          fill="none"
+                        >
+                          <path
+                            fill="#000"
+                            stroke="#EF4444"
+                            d="M10.2 4v.5h3.1a.2.2 0 0 1 0 .3h-1.1v7.9a1.5 1.5 0 0 1-1.5 1.5H5.3c-.4 0-.7-.2-1-.5l-.4.4.4-.4c-.3-.3-.5-.6-.5-1V4.8H2.7a.2.2 0 1 1 0-.3h3.1V3.3a1.5 1.5 0 0 1 1.5-1.5h1.4a1.5 1.5 0 0 1 1.5 1.5V4Zm-.9.5h.5V3.3a1.2 1.2 0 0 0-1.1-1.1H7.3a1.2 1.2 0 0 0-1.1 1.1v1.2h3.1Zm-4.6.3h-.5v7.9a1.2 1.2 0 0 0 1.1 1.1h5.4a1.2 1.2 0 0 0 1.1-1.1V4.8H4.7Zm2 6.7a.2.2 0 0 1-.2-.2v-4a.2.2 0 0 1 .3 0v4.2Zm2.8 0a.2.2 0 0 1-.3-.2v-4a.2.2 0 0 1 .3 0v4.2Z"
+                          />
+                        </svg>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+                <button className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-5">
+                  Calculate Route Now
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col border-[1px] border-[#E3E3E3] rounded-md py-4 px-16 gap-8">
+                <div className="flex flex-col">
+                  <p className="font-bold text-sm">
+                    {secondStepPlace?.main_text}
+                  </p>
+                  <p className="font-normal text-xs">
+                    {secondStepPlace?.secondary_text}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <p className="font-bold text-sm">Add notes for delivery</p>
+                  <textarea
+                    onChange={(e) => {
+                      setNotes(e.target.value);
+                    }}
+                    className="border-[1px] rounded-sm border-[#E3E3E3] resize-none outline-none p-4 text-xs font-light text-[#000000] h-40"
+                    placeholder="Type notes here"
+                  ></textarea>
+                </div>
+                <button
+                  onClick={() => {
+                    savePlace();
+                  }}
+                  className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-3 w-[60%]"
+                >
+                  Add Address
+                </button>
               </div>
-            </div>
-            <button className="font-poppins font-bold flex flex-row justify-center items-center bg-gradient-to-r from-[#0C3777] to-[#00693D] rounded-3xl text-white py-5">
-              Calculate Route Now
-            </button>
+            )}
           </div>
         </>
       )}
@@ -276,6 +337,7 @@ const Maps = () => {
               onChange={handleInput}
             />
           </div>
+
           <div className="flex flex-col border-[1.5px] border-[#ADADAD] rounded-md">
             {value ? (
               status === "OK" && <>{renderSuggestions()}</>
