@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db } from "../../services/clientApp";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, setDoc, doc } from "firebase/firestore";
 import {
   GoogleMap,
   DirectionsService,
@@ -16,7 +15,6 @@ import {
   orderBy,
   deleteDoc,
 } from "firebase/firestore";
-import { GoogleMap } from "@react-google-maps/api";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
@@ -145,6 +143,19 @@ const Maps = () => {
       setSecondStepPlace({ lat, lng, main_text, secondary_text });
       setStep(1);
     });
+    openModal(false);
+  };
+
+  const handleRecommend = (place) => {
+    const { mainText, secondaryText, latitude, longitude } = place;
+    const main_text = mainText;
+    const secondary_text = secondaryText;
+    const lat = latitude;
+    const lng = longitude;
+    setValue("");
+    clearSuggestions();
+    setSecondStepPlace({ lat, lng, main_text, secondary_text });
+    setStep(1);
     openModal(false);
   };
 
@@ -480,7 +491,7 @@ const Maps = () => {
                   </div>
                 </div>
                 <div className="flex flex-col h-full justify-between mx-8 gap-4">
-                  <div className="flex flex-col h-56 overflow-y-auto gap-4">
+                  <div className="flex flex-col h-64 overflow-y-auto gap-4">
                     {savedPlaces.map((place, index) => (
                       <div
                         key={index}
@@ -568,42 +579,52 @@ const Maps = () => {
               status === "OK" && <>{renderSuggestions()}</>
             ) : (
               <>
-                <div className="p-3 flex flex-row flex-1 items-center justify-between border-b-[1px] border-[#ADADAD] last:border-b-0 group">
-                  <div className="flex flex-row items-center gap-4">
-                    <svg
-                      width="25"
-                      height="25"
-                      viewBox="0 0 25 25"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M24.8262 4.79146L19.1162 0L17.5149 1.89921L23.2249 6.69067L24.8262 4.79146ZM7.29891 1.89921L5.71003 0L0 4.77905L1.60129 6.67825L7.29891 1.89921ZM13.0338 7.62165H11.1718V15.0695L17.068 18.6073L17.999 17.0804L13.0338 14.1385V7.62165ZM12.4131 2.6564C6.24379 2.6564 1.24131 7.65889 1.24131 13.8282C1.24131 19.9975 6.23138 25 12.4131 25C18.5824 25 23.5849 19.9975 23.5849 13.8282C23.5849 7.65889 18.5824 2.6564 12.4131 2.6564ZM12.4131 22.5174C7.60924 22.5174 3.72393 18.6321 3.72393 13.8282C3.72393 9.02433 7.60924 5.13903 12.4131 5.13903C17.217 5.13903 21.1023 9.02433 21.1023 13.8282C21.1023 18.6321 17.217 22.5174 12.4131 22.5174Z"
-                        fill="black"
-                      />
-                    </svg>
-                    <div className="flex flex-col ">
-                      <p className="text-xs font-bold">Puregold Shadow</p>
-                      <p className="text-xs">181 J. Asinas</p>
+                {recentPlaces.map((place, index) => (
+                  <div
+                    key={index}
+                    onClick={() => {
+                      handleRecommend(place);
+                    }}
+                    className="p-3 flex flex-row flex-1 items-center justify-between border-b-[1px] border-[#ADADAD] cursor-pointer last:border-b-0 group"
+                  >
+                    <div className="flex flex-row items-center gap-4">
+                      <svg
+                        width="25"
+                        height="25"
+                        viewBox="0 0 25 25"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M24.8262 4.79146L19.1162 0L17.5149 1.89921L23.2249 6.69067L24.8262 4.79146ZM7.29891 1.89921L5.71003 0L0 4.77905L1.60129 6.67825L7.29891 1.89921ZM13.0338 7.62165H11.1718V15.0695L17.068 18.6073L17.999 17.0804L13.0338 14.1385V7.62165ZM12.4131 2.6564C6.24379 2.6564 1.24131 7.65889 1.24131 13.8282C1.24131 19.9975 6.23138 25 12.4131 25C18.5824 25 23.5849 19.9975 23.5849 13.8282C23.5849 7.65889 18.5824 2.6564 12.4131 2.6564ZM12.4131 22.5174C7.60924 22.5174 3.72393 18.6321 3.72393 13.8282C3.72393 9.02433 7.60924 5.13903 12.4131 5.13903C17.217 5.13903 21.1023 9.02433 21.1023 13.8282C21.1023 18.6321 17.217 22.5174 12.4131 22.5174Z"
+                          fill="black"
+                        />
+                      </svg>
+
+                      <div className="flex flex-col">
+                        <p className="text-xs font-bold">{place.mainText}</p>
+                        <p className="text-[10px]">{place.secondaryText}</p>
+                        <p className="text-[8px]">{place.date.toString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-row gap-8 items-center">
+                      <svg
+                        className="mr-4 transition-all group-hover:mr-0"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 10 14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M2 2L7.25 7.25L2 12.5"
+                          stroke="#00693D"
+                          strokeWidth="2.86364"
+                        />
+                      </svg>
                     </div>
                   </div>
-                  <div className="flex flex-row gap-8 items-center">
-                    <svg
-                      className="mr-4 transition-all group-hover:mr-0"
-                      width="10"
-                      height="14"
-                      viewBox="0 0 10 14"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M2 2L7.25 7.25L2 12.5"
-                        stroke="#00693D"
-                        strokeWidth="2.86364"
-                      />
-                    </svg>
-                  </div>
-                </div>
+                ))}
               </>
             )}
           </div>
